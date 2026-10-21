@@ -1,0 +1,38 @@
+name: Deploy Mane Firebase backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mane-platform/**"
+      - ".github/workflows/firebase-deploy.yml"
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: mane-platform/functions/package-lock.json
+      - name: Install Firebase CLI
+        run: npm install --global firebase-tools
+      - name: Install dependencies
+        working-directory: mane-platform/functions
+        run: npm ci
+      - name: Build Cloud Functions
+        working-directory: mane-platform/functions
+        run: npm run build
+      - name: Deploy to Firebase
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          test -n "$FIREBASE_TOKEN" || (echo "Add FIREBASE_TOKEN in repository Actions secrets." && exit 1)
+          firebase deploy --project "${{ secrets.FIREBASE_PROJECT_ID }}" --only functions,firestore:rules,firestore:indexes,storage
