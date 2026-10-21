@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "mane-dev",
+    "prod": "mane-prod"
+  }
+}

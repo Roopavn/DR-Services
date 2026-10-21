@@ -1,0 +1,23 @@
+{
+  "name": "mane-functions",
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start",
+    "deploy": "firebase deploy --only functions",
+    "seed": "node scripts/seed.js",
+    "set-admin": "node scripts/set-admin.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.0",
+    "firebase-functions": "^7.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  },
+  "private": true,
+  "engines": {
+    "node": "22"
+  }
+}

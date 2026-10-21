@@ -1,0 +1,21 @@
+rules_version = '2';
+
+// Partner ID documents (Aadhaar, driving licence, photo).
+// A partner can upload and read only their own files; admins can read all.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /workers/{uid}/docs/{fileName} {
+      allow read: if request.auth != null
+        && (request.auth.uid == uid || request.auth.token.get('role', '') == 'admin');
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 10 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*')
+            || request.resource.contentType == 'application/pdf');
+      allow delete: if false;
+    }
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

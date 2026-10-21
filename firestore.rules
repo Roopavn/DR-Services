@@ -1,0 +1,107 @@
+rules_version = '2';
+
+// Mane: Firestore security rules
+//
+// Principle: the apps can READ what they need, but almost every WRITE goes
+// through Cloud Functions (functions/src). Prices, statuses, payments, door
+// codes and payouts can never be changed directly from a phone, because a
+// modified app could otherwise cheat.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function roleIs(r) { return signedIn() && request.auth.token.get('role', '') == r; }
+    function isAdmin() { return roleIs('admin'); }
+    function isWorker() { return roleIs('worker'); }
+    function me() { return request.auth.uid; }
+    function workerDoc() {
+      return get(/databases/$(database)/documents/workers/$(request.auth.uid)).data;
+    }
+    function onlyChanges(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    // Customer and partner profiles. Created by completeProfile / applyAsPartner.
+    match /users/{uid} {
+      allow read: if signedIn() && (me() == uid || isAdmin());
+      allow update: if signedIn() && me() == uid
+        && onlyChanges(['name', 'addresses', 'fcmToken', 'language'])
+        && (!('addresses' in request.resource.data)
+            || (request.resource.data.addresses is list
+                && request.resource.data.addresses.size() <= 10));
+      allow create, delete: if false;
+    }
+
+    // Partner (worker) records. A verified partner may only flip online/offline,
+    // update their notification token and language.
+    match /workers/{uid} {
+      allow read: if signedIn() && (me() == uid || isAdmin());
+      allow update: if signedIn() && me() == uid
+        && resource.data.status == 'verified'
+        && onlyChanges(['online', 'fcmToken', 'language'])
+        && request.resource.data.online is bool;
+      allow create, delete: if false;
+    }
+
+    // Service catalogue and platform settings: everyone signed in can read,
+    // only the updatePricing function writes.
+    match /services/{serviceId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+    match /settings/{doc} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // Bookings. Readable by the customer, the assigned worker, admins, and
+    // verified workers of the right skill while the job is still looking for
+    // someone. The partner app must query with
+    //   where('status', '==', 'searching').where('serviceId', '==', <skill>)
+    // for that last case to pass.
+    match /bookings/{bookingId} {
+      allow read: if signedIn() && (
+        resource.data.customerId == me()
+        || resource.data.workerId == me()
+        || isAdmin()
+        || (isWorker()
+            && resource.data.status == 'searching'
+            && workerDoc().status == 'verified'
+            && workerDoc().skill == resource.data.serviceId)
+      );
+      allow write: if false;
+
+      // private/address: full address, for the customer, admins and the
+      //                  assigned worker only (not visible before accepting).
+      // private/codes:   start and end door codes, for the customer and admins
+      //                  only. Workers never see them; they must ask at the door.
+      match /private/{doc} {
+        function parent() {
+          return get(/databases/$(database)/documents/bookings/$(bookingId)).data;
+        }
+        allow read: if signedIn() && (
+          isAdmin()
+          || parent().customerId == me()
+          || (doc == 'address' && parent().workerId == me())
+        );
+        allow write: if false;
+      }
+    }
+
+    match /complaints/{id} {
+      allow read: if signedIn() && (resource.data.customerId == me() || isAdmin());
+      allow write: if false;
+    }
+
+    match /payouts/{id} {
+      allow read: if signedIn() && (resource.data.workerId == me() || isAdmin());
+      allow write: if false;
+    }
+
+    // Everything else (counters, etc.) is server-only.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
