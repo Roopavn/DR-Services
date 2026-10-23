@@ -48,8 +48,14 @@ jobs:
         working-directory: functions
         run: npm run build
 
+      - name: Verify Google Cloud credentials
+        run: |
+          firebase --version
+          gcloud auth print-access-token > /dev/null
+          echo "Google Cloud ADC token obtained successfully."
+
       - name: Deploy to Firebase
         env:
           FIREBASE_PROJECT_ID: doorstep-services-c5d78
         run: |
-          firebase deploy --project "$FIREBASE_PROJECT_ID" --only functions,firestore:rules,firestore:indexes,storage --non-interactive
+          firebase deploy --debug --project "$FIREBASE_PROJECT_ID" --only functions,firestore:rules,firestore:indexes,storage --non-interactive
