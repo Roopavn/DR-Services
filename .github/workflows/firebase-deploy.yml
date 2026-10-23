@@ -38,7 +38,7 @@ jobs:
           service_account: dr-services-deployer-copy@doorstep-services-c5d78.iam.gserviceaccount.com
 
       - name: Install Firebase CLI
-        run: npm install --global firebase-tools
+        run: npm install --global firebase-tools@15.22.1
 
       - name: Install dependencies
         working-directory: functions
