@@ -58,4 +58,4 @@ jobs:
         env:
           FIREBASE_PROJECT_ID: doorstep-services-c5d78
         run: |
-          firebase deploy --debug --project "$FIREBASE_PROJECT_ID" --only functions,firestore:rules,firestore:indexes,storage --non-interactive
+          firebase deploy --debug --project "$FIREBASE_PROJECT_ID" --only functions,firestore:rules,firestore:indexes --non-interactive
