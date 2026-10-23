@@ -4,17 +4,15 @@ on:
   push:
     branches: [main]
     paths:
-      - "functions/**"
       - "firebase.json"
       - ".firebaserc"
       - "firestore.rules"
       - "firestore.indexes.json"
-      - "storage.rules"
       - ".github/workflows/firebase-deploy.yml"
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  deploy-firestore:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -28,8 +26,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: functions/package-lock.json
 
       - name: Authenticate to Google Cloud using Workload Identity Federation
         uses: google-github-actions/auth@v2
@@ -40,22 +36,14 @@ jobs:
       - name: Install Firebase CLI
         run: npm install --global firebase-tools@15.22.1
 
-      - name: Install dependencies
-        working-directory: functions
-        run: npm ci
-
-      - name: Build Cloud Functions
-        working-directory: functions
-        run: npm run build
-
       - name: Verify Google Cloud credentials
         run: |
           firebase --version
           gcloud auth print-access-token > /dev/null
           echo "Google Cloud ADC token obtained successfully."
 
-      - name: Deploy to Firebase
+      - name: Deploy Firestore rules and indexes only
         env:
           FIREBASE_PROJECT_ID: doorstep-services-c5d78
         run: |
-          firebase deploy --debug --project "$FIREBASE_PROJECT_ID" --only functions,firestore:rules,firestore:indexes --non-interactive
+          firebase deploy --debug --project "$FIREBASE_PROJECT_ID" --only firestore:rules,firestore:indexes --non-interactive
